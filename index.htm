@@ -1,0 +1,148 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+    <title>My Page</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="http://code.jquery.com/mobile/1.2.1/jquery.mobile-1.2.1.min.css" />
+    <link rel="stylesheet" type="text/css" href="./css/tolito-1.0.4.css" />
+    <script src="http://code.jquery.com/jquery-1.8.3.min.js"></script>
+    <script src="http://code.jquery.com/mobile/1.2.1/jquery.mobile-1.2.1.min.js"></script>
+    <script src="phonegap.js"></script>
+    <script src="./js/tolito-1.0.4.js"></script>
+    <script src="./js/mustache.js"></script>
+</head>
+<body>
+    <div data-role="page" id="search" data-theme="a">
+        <div data-role="header">
+            <h1>Search</h1>
+        </div>
+        <!-- /header -->
+        <div data-role="content">
+            <div class="ui-grid-solo">
+                 <div class="ui-block-a">
+                     <span>Provide the location and press <b>'Show'</b> button</span>
+                 </div>
+                 <div class="ui-block-a">
+                    <input type="search" id="location" name="location" style="display: inline-block"/>
+                </div>
+                <div class="ui-block-a">
+                    <p>
+                        <a href="#results" id="search_button" data-role="button" data-transition="slide">Show</a>
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div data-role="page" id="results" data-theme="a" data-content-theme="a">
+        <div data-role="header">
+            <h1>Interruptions</h1>
+        </div>
+        <!-- /header -->
+        <div data-role="content">
+            <div id="progressbar"></div>
+            <br />
+            <span id="results_title"></span> <br /><br />
+            <div class="ui-grid-a" id="result_data">
+            </div>
+            <div class="ui-grid-solo">
+                <div class="ui-block-a">
+                    <p>
+                        <a href="#search" data-role="button" data-transition="slide" data-direction="reverse">New Search</a>
+                    </p>
+                </div>
+            </div>
+        </div>
+        <!-- /content -->
+
+        <script type="text/javascript">
+
+
+            $(document).delegate("#results", "pageshow", function () {
+
+
+                var location = $('#location').val();
+
+                $("#results_title").html("Fetching information for " + location + "...");
+                $("#progressbar").show();
+
+                //                var data = { "results": [
+                //                                    { "Name": "BENTLEY (6102)", "Details": "No known interruptions", "IsInterrupted": false },
+                //                                    { "Name": "ST JAMES (6102)", "Details": "No known interruptions", "IsInterrupted": false }
+                //                                        ]
+                //                };
+
+                //var data = { "result": [{ "Name": "PERTH (6000)", "Details": "No known interruptions", "IsInterrupted": false }] };
+
+                //displayPowerInterruptData(data,location);
+
+                var promise = getPowerInterruptData(location);
+                promise.done(function (data) {
+                    displayPowerInterruptData(data, location);
+                });
+
+                promise.fail(function (jqXHR, textStatus) {
+                    displayFailure(textStatus);
+                });
+
+                promise.always(function () {
+                    stopProgressBar();
+                });
+
+            });
+
+
+            $(document).delegate("#results", "pagehide", function () {
+                $("#result_data").html('');
+            });
+
+            $(document).delegate("#results", "pageinit", function () {
+                startProgressBar();
+            });
+
+            function getPowerInterruptData(location) {
+                var url = "http://localhost:63225/api/powerinterruption/" + location;
+                
+                return $.ajax({
+                    url: url,
+                    type: 'GET',
+                    dataType: 'jsonp'
+                });
+            }
+
+            function displayPowerInterruptData(data, location) {
+                //alert(data);
+                if (data.length === 0) {
+                    $("#results_title").html("No results found for " + location);
+                } else {
+                    var output = Mustache.to_html("{{#.}}<div class='ui-block-a'><span id='data'><strong>{{Name}}</strong></span></div><div class='ui-block-b'>{{Summary}}</div>{{/.}}", data);
+                    $("#results_title").html("Here are the results for " + location);
+                    $("#result_data").html(output);
+                }
+                stopProgressBar();
+            }
+
+            function displayFailure(errorStatus) {
+                $("#results_title").html("Error communicating with western power website");
+                stopProgressBar();
+            }
+
+            function startProgressBar() {
+                TolitoProgressBar('progressbar')
+                    .setOuterTheme('b')
+                    .isIndefinite(true)
+                    .isMini(true)
+                    .showCounter(false)
+                    .logOptions()
+                    .build();
+
+            }
+
+            function stopProgressBar() {
+                $("#progressbar").hide();
+            }
+
+        </script>
+    </div>
+    <!-- /page -->
+</body>
+</html>
