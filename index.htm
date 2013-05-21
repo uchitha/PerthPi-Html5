@@ -7,23 +7,32 @@
     <link rel="stylesheet" type="text/css" href="./css/tolito-1.0.4.css" />
     <script src="http://code.jquery.com/jquery-1.8.3.min.js"></script>
     <script src="http://code.jquery.com/mobile/1.2.1/jquery.mobile-1.2.1.min.js"></script>
-    <script src="phonegap.js"></script>
     <script src="./js/tolito-1.0.4.js"></script>
     <script src="./js/mustache.js"></script>
 </head>
 <body>
+    <!--Template-->
+    <div id="result_template">
+        <li data-theme="{{^IsInterrupted}}c{{/IsInterrupted}}">
+                   <p class="ui-li-aside">{{Summary}}</p>
+                   <h3>{{Name}}</h3>
+                   <p>{{#IsInterrupted}}Estimated Restoration at {{RestorationTime}}{{/IsInterrupted}}</p>
+        </li>
+    </div>
+    <!--End of Template-->
     <div data-role="page" id="search" data-theme="a">
         <div data-role="header">
-            <h1>Search</h1>
+            <h1>
+                Search</h1>
         </div>
         <!-- /header -->
         <div data-role="content">
             <div class="ui-grid-solo">
-                 <div class="ui-block-a">
-                     <span>Provide the location and press <b>'Show'</b> button</span>
-                 </div>
-                 <div class="ui-block-a">
-                    <input type="search" id="location" name="location" style="display: inline-block"/>
+                <div class="ui-block-a">
+                    <span>Provide the location and press <b>'Show'</b> button</span>
+                </div>
+                <div class="ui-block-a">
+                    <input type="search" id="location" name="location" style="display: inline-block" />
                 </div>
                 <div class="ui-block-a">
                     <p>
@@ -35,25 +44,28 @@
     </div>
     <div data-role="page" id="results" data-theme="a" data-content-theme="a">
         <div data-role="header">
-            <h1>Interruptions</h1>
+            <h1>
+                Interruptions</h1>
         </div>
         <!-- /header -->
         <div data-role="content">
-            <div id="progressbar"></div>
-            <br />
-            <span id="results_title"></span> <br /><br />
-            <div class="ui-grid-a" id="result_data">
+            <div id="progressbar">
             </div>
+            <br />
+            <span id="results_title"></span>
+            <br />
+            <ul data-role="listview" data-inset="true" id="result_data" class="ui-listview">
+            </ul>
             <div class="ui-grid-solo">
                 <div class="ui-block-a">
                     <p>
-                        <a href="#search" data-role="button" data-transition="slide" data-direction="reverse">New Search</a>
+                        <a href="#search" data-role="button" data-transition="slide" data-direction="reverse">
+                            New Search</a>
                     </p>
                 </div>
             </div>
         </div>
         <!-- /content -->
-
         <script type="text/javascript">
 
 
@@ -101,7 +113,7 @@
 
             function getPowerInterruptData(location) {
                 var url = "http://localhost:63225/api/powerinterruption/" + location;
-                
+
                 return $.ajax({
                     url: url,
                     type: 'GET',
@@ -111,12 +123,14 @@
 
             function displayPowerInterruptData(data, location) {
                 //alert(data);
-                if (data.length === 0) {
+                if (data == undefined || data.length === 0) {
                     $("#results_title").html("No results found for " + location);
                 } else {
-                    var output = Mustache.to_html("{{#.}}<div class='ui-block-a'><span id='data'><strong>{{Name}}</strong></span></div><div class='ui-block-b'>{{Summary}}</div>{{/.}}", data);
+                    var template = "{{#.}}" + $("#result_template").html().trim() + "{{/.}}";
+                    var output = Mustache.to_html(template, data);
                     $("#results_title").html("Here are the results for " + location);
                     $("#result_data").html(output);
+                    $("#result_data").listview('refresh');
                 }
                 stopProgressBar();
             }
