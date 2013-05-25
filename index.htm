@@ -9,18 +9,19 @@
     <script src="http://code.jquery.com/mobile/1.2.1/jquery.mobile-1.2.1.min.js"></script>
     <script src="./js/tolito-1.0.4.js"></script>
     <script src="./js/mustache.js"></script>
+    <script src="./js/jqm.autocomplete-jsonp-1.5.1.js"></script>
 </head>
 <body>
     <!--Template-->
     <div id="result_template">
-        <li data-theme="{{^IsInterrupted}}c{{/IsInterrupted}}">
+        <li data-theme="{{^IsInterrupted}}c{{/IsInterrupted}}" style="{{#IsInterrupted}}color: red{{/IsInterrupted}}">
                    <p class="ui-li-aside">{{Summary}}</p>
                    <h3>{{Name}}</h3>
                    <p>{{#IsInterrupted}}Estimated Restoration at {{RestorationTime}}{{/IsInterrupted}}</p>
         </li>
     </div>
     <!--End of Template-->
-    <div data-role="page" id="search" data-theme="a">
+    <div data-role="page" id="searchpage" data-theme="a">
         <div data-role="header">
             <h1>
                 Search</h1>
@@ -29,10 +30,11 @@
         <div data-role="content">
             <div class="ui-grid-solo">
                 <div class="ui-block-a">
-                    <span>Provide the location and press <b>'Show'</b> button</span>
+                    <span>Enter the location name or postcode and press <b>'Show'</b> button</span>
                 </div>
                 <div class="ui-block-a">
                     <input type="search" id="location" name="location" style="display: inline-block" />
+                      <ul id="locations" data-role="listview" data-inset="true" />
                 </div>
                 <div class="ui-block-a">
                     <p>
@@ -41,6 +43,28 @@
                 </div>
             </div>
         </div>
+        <script type="text/javascript">
+
+            $(document).delegate("#searchpage", "pageshow", function (e) {
+                $("#location").autocomplete({
+                    target: $("#locations"),
+                    source: "http://tnu.apphb.com/api/auspost?",
+                    minLength: 3,
+                    link: '#results',
+                    loadingHtml: '',
+                    callback: function (e) {
+                        var $a = $(e.currentTarget); // access the selected item
+                        $('#location').val($a.text()); // place the value of the selection into the search box
+                        $("#locations").autocomplete('clear'); // clear the listview
+                        $("#locations").hide();
+                    },
+                    onLoading: function () {
+                        $("#locations").show();
+                    },
+                });
+            });
+
+        </script>
     </div>
     <div data-role="page" id="results" data-theme="a" data-content-theme="a">
         <div data-role="header">
@@ -59,7 +83,7 @@
             <div class="ui-grid-solo">
                 <div class="ui-block-a">
                     <p>
-                        <a href="#search" data-role="button" data-transition="slide" data-direction="reverse">
+                        <a href="#searchpage" data-role="button" data-transition="slide" data-direction="reverse">
                             New Search</a>
                     </p>
                 </div>
@@ -68,7 +92,6 @@
         <!-- /content -->
         <script type="text/javascript">
 
-
             $(document).delegate("#results", "pageshow", function () {
 
 
@@ -76,16 +99,6 @@
 
                 $("#results_title").html("Fetching information for " + location + "...");
                 $("#progressbar").show();
-
-                //                var data = { "results": [
-                //                                    { "Name": "BENTLEY (6102)", "Details": "No known interruptions", "IsInterrupted": false },
-                //                                    { "Name": "ST JAMES (6102)", "Details": "No known interruptions", "IsInterrupted": false }
-                //                                        ]
-                //                };
-
-                //var data = { "result": [{ "Name": "PERTH (6000)", "Details": "No known interruptions", "IsInterrupted": false }] };
-
-                //displayPowerInterruptData(data,location);
 
                 var promise = getPowerInterruptData(location);
                 promise.done(function (data) {
@@ -112,7 +125,7 @@
             });
 
             function getPowerInterruptData(location) {
-                var url = "http://localhost:63225/api/powerinterruption/" + location;
+                var url = "http://tnu.apphb.com/api/powerinterruption/" + location;
 
                 return $.ajax({
                     url: url,
@@ -157,6 +170,7 @@
 
         </script>
     </div>
+
     <!-- /page -->
 </body>
 </html>
