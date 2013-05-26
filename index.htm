@@ -17,7 +17,7 @@
     <div id="result_template">
         <li data-theme="{{^IsInterrupted}}c{{/IsInterrupted}}" style="{{#IsInterrupted}}color: red{{/IsInterrupted}}">
                    <p class="ui-li-aside">{{Summary}}</p>
-                   <h3>{{Name}}</h3>
+                   <h3>{{Name}}  {{<br />PostCode}}</h3>
                    <p>{{#IsInterrupted}}Estimated Restoration at {{RestorationTime}}{{/IsInterrupted}}</p>
         </li>
     </div>
@@ -53,6 +53,7 @@
                     minLength: 3,
                     link: '#results',
                     loadingHtml: '',
+                    matchFormStart: true,
                     callback: function (e) {
                         var $a = $(e.currentTarget); // access the selected item
                         $('#location').val($a.text()); // place the value of the selection into the search box
@@ -126,7 +127,7 @@
             });
 
             function getPowerInterruptData(location) {
-                var url = "http://tnu.apphb.com/api/powerinterruption/" + location;
+                var url = "http://localhost:63225/api/powerinterruption/" + location;
 
                 return $.ajax({
                     url: url,
