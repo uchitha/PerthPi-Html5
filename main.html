@@ -1,0 +1,319 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+    <title>Search</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="./css/jquery.mobile-1.3.2.min.css" />
+    <script src="./js/jquery-1.8.3.min.js"></script>
+    <script src="./js/jquery.mobile-1.3.2.min.js"></script>
+    <script>
+
+        console.logCopy = console.log.bind(console);
+
+        console.log = function (data) {
+            var timestamp = '[' + new Date() + '] ';
+            this.logCopy(timestamp, data);
+        };
+
+    </script>
+</head>
+<body>
+    <!--Template-->
+    <div id="result_template_suburb">
+        <li data-theme="{{^IsInterrupted}}c{{/IsInterrupted}}" style="{{#IsInterrupted}}color: red{{/IsInterrupted}}">
+            <p class="ui-li-aside">
+                {{Summary}}</p>
+            <h3 style="margin: 0">
+                {{Name}} {{#PostCode}} ({{PostCode}}){{/PostCode}}</h3>
+            <p style="overflow: visible; margin: 0 0">
+                {{#IsInterrupted}}Estimated Restoration : <strong>{{RestorationTime}}</strong>{{/IsInterrupted}}</p>
+        </li>
+    </div>
+    <div id="result_template_postcode">
+        <li data-theme="{{^IsInterrupted}}c{{/IsInterrupted}}" style="{{#IsInterrupted}}color: red{{/IsInterrupted}}">
+            <p class="ui-li-aside">
+                {{Summary}}</p>
+            <h3 style="margin: 0">
+                {{Name}}</h3>
+            <p style="overflow: visible; margin: 0 0">
+                {{#IsInterrupted}}Estimated Restoration : <strong>{{RestorationTime}}</strong>{{/IsInterrupted}}</p>
+        </li>
+    </div>
+    <div id="result_template_current">
+        <li style="color: red">
+            <h3 style="margin: 0">
+                {{Name}} {{#PostCode}} ({{PostCode}}){{/PostCode}}</h3>
+            <p style="overflow: visible; margin: 0 0">
+                Estimated Restoration : <strong>{{RestorationTime}}</strong></p>
+        </li>
+    </div>
+    <!--End of Template-->
+    <!-- Pages -->
+    <div id="listpage" data-role="page" data-theme="a">
+        <div data-role="header">
+            <h1>
+                Interruptions</h1>
+        </div>
+        <div data-role="content">
+            <br />
+            <span id="no_interruptions" style="font-size: 12pt"></span>
+            
+            <br />
+            <span id="last_updated_current" style="font-size: 12pt"></span>
+            <br />
+            <div id="listpage_progressbar" style="font-size: 12pt"><img src="css/images/ajax-loader.gif" alt="Loading..." />
+                </div>
+
+            <ul data-role="listview" id="current_list" data-inset="true" class="ui-listview">
+            </ul>
+            <br />
+        </div>
+        <div data-role="footer" data-position="fixed">
+            <div class="ui-grid-solo">
+                <div class="ui-block-a">
+                    <a href="#searchpage" data-role="button" data-transition="slide" data-theme="b">Real
+                        Time Updates</a>
+                </div>
+            </div>
+        </div>
+        <script type="text/javascript">
+
+            var complete = false;
+            $(document).delegate("#listpage", "pageinit", function () {
+                complete = false;
+                $("#listpage_progressbar").show();
+                $.when(pi.promiseInitializeCurrentInterruption()).done(function () {
+                    complete = true;
+                    displayCurrentInterruptions();
+
+                });
+
+                $.when(pi.promiseLastUpdatedTime()).done(function () {
+                    $("#last_updated_current").html("As at: " + getDisplayTime(pi.getLastUpdateTimeStamp()));
+                });
+            });
+
+            function displayCurrentInterruptions() {
+                var data = pi.getCurrentInterruptions();
+                if (data == undefined || data.length === 0) {
+                    $("#no_interruptions").html("No suburb is having ongoing interruptions");
+                } else {
+                    var template = "{{#.}}" + $("#result_template_current").html().trim() + "{{/.}}";
+                    var output = Mustache.to_html(template, data);
+                    $("#current_list").html(output);
+                    $("#no_interruptions").html("Found " + data.length + " ongoing interruption(s)");
+                    $("#current_list").listview('refresh');
+                }
+                $("#listpage_progressbar").hide();
+            };
+
+            function getDisplayTime(d) {
+                return (d.toTimeString().split(' ')[0] + " (" + d.toDateString() + ")");
+            };
+
+        </script>
+    </div>
+    <div data-role="page" id="searchpage" data-theme="a">
+        <div data-role="header">
+            <h1>
+                Search</h1>
+        </div>
+        <!-- /header -->
+        <div data-role="content">
+            <div class="ui-grid-solo">
+                <div class="ui-block-a">
+                    <span>Enter the location name or postcode...</span>
+                </div>
+                <div class="ui-block-a">
+                    <input type="search" id="location" name="location" style="display: inline-block" />
+                    <ul id="locations" data-role="listview" data-inset="true" />
+                </div>
+            </div>
+        </div>
+        <div data-role="footer" data-position="fixed">
+            <div class="ui-grid-solo">
+                <div class="ui-block-a">
+                    <p>
+                        <a href="#resultspage" data-role="button" data-theme="b" data-transition="slide">Show</a>
+                    </p>
+                </div>
+                <div class="ui-block-a">
+                    <p>
+                        <a href="#listpage" data-role="button" data-transition="slide">Interruptions</a>
+                    </p>
+                </div>
+            </div>
+        </div>
+        <script type="text/javascript">
+
+            $(document).delegate("#searchpage", "pageinit", function () {
+                pi.initializeInterruptionData();
+            });
+
+            $(document).delegate("#searchpage", "pageshow", function (e) {
+                $("#location").autocomplete({
+                    target: $("#locations"),
+                    source: getSuburbs,
+                    minLength: 3,
+                    link: '#resultspage',
+                    loadingHtml: '',
+                    matchFromStart: true,
+                    callback: function (e) {
+                        var $a = $(e.currentTarget); // access the selected item
+                        $('#location').val($a.text().split('(')[0].trim()); // place the value of the selection into the search box
+                        $("#locations").autocomplete('clear'); // clear the listview
+                        $("#locations").hide();
+                    },
+                    onLoading: function () {
+                        $("#locations").show();
+                    },
+                });
+            
+            });
+
+           function getSuburbs(searchString,callback) {
+				$("#locations").show();
+				var data = {};
+				searchString = searchString.toUpperCase();
+			    var startChar = searchString[0];
+				if (isNumber(startChar)) {
+					if (searchString.length < 4) return;
+					data =  locationsByPostcode[searchString];
+				}else {
+					var suburbsStartingWith = locationsByInitialLetter[startChar];
+					data = suburbsStartingWith.sort().filter(function(element) {
+						var re = new RegExp('^' + searchString, 'i');
+						return re.test(element);
+					});		
+				}
+				callback(data);
+			}
+
+        </script>
+    </div>
+    <div data-role="page" id="resultspage" data-theme="a" data-content-theme="a">
+        <div data-role="header">
+            <h1>
+                Interruptions</h1>
+        </div>
+        <!-- /header -->
+        <div data-role="content">
+            <div id="progressbar">
+            </div>
+            <br />
+            <span id="results_title"></span>
+            <br />
+            <span id="last_updated" style="font-size: 12pt"></span>
+            <br />
+             <a id="result_refresh" data-role="button" data-theme="b" data-icon="refresh" data-iconpos="right"
+                            data-mini="true">Refresh</a>
+            <ul data-role="listview" data-inset="true" id="result_data" class="ui-listview">
+            </ul>
+        </div>
+        <div data-role="footer" data-position="fixed">
+            <div class="ui-grid-solo">
+                <div class="ui-block-a">
+                    <p>
+                        <a href="#searchpage" data-role="button" data-transition="slide" data-theme="b" data-direction="reverse">
+                            New Search</a>
+                    </p>
+                </div>
+                <div class="ui-block-a">
+                    <p>
+                        <a href="#listpage" data-role="button" data-transition="slide">Interruptions</a>
+                    </p>
+                </div>
+              
+            </div>
+        </div>
+        <!-- /content -->
+        <script type="text/javascript">
+
+            $(document).delegate("#resultspage", "pageinit", function () {
+                $("#result_refresh").bind("click", function () {
+
+                    $("#last_updated").html("Loading ...");
+                    var location = $('#location').val();
+
+                    var updatePromise = pi.promiseInterruptionDataFromWp(location);
+
+                    updatePromise.done(function (data) {
+                        if (data === undefined || data === '') return;
+                        displayPowerInterruptData(data, location);
+                        var d = new Date();
+                        $("#last_updated").html("As at: " + d.toTimeString().split(' ')[0] + " (" + d.toDateString() + ")");
+                    });
+
+
+                });
+            });
+
+            $(document).delegate("#resultspage", "pageshow", function () {
+                var location = $('#location').val();
+                $("#results_title").html("Fetching information for " + location + "...");
+                var data = getLocalPowerInterruptData(location);
+                displayPowerInterruptData(data, location);
+                $("#last_updated").html("As at: " + getDisplayTime(pi.getLastUpdateTimeStamp()));
+            });
+
+
+            $(document).delegate("#resultspage", "pagehide", function () {
+                $("#result_data").html('');
+            });
+
+
+            function getLocalPowerInterruptData(location) {
+                var data;
+                if (isPostCode(location)) {
+                    return pi.getInterruptionPostcode(location);
+                } else {
+                    return pi.getInterruptionSuburb(location);
+                }
+            }
+
+            function displayPowerInterruptData(data, location) {
+                //alert(data);
+                if (data == undefined || data.length === 0) {
+                    $("#results_title").html("No results found for " + location);
+                } else {
+                    var template;
+                    if (isPostCode(location)) {
+                        template = "{{#.}}" + $("#result_template_postcode").html().trim() + "{{/.}}";
+                    } else {
+                        template = "{{#.}}" + $("#result_template_suburb").html().trim() + "{{/.}}";
+                    }
+                    var output = Mustache.to_html(template, data);
+                    $("#results_title").html("Here are the results for " + location);
+                    $("#result_data").html(output);
+                    $("#result_data").listview('refresh');
+                }
+            }
+
+            function displayFailure(errorStatus) {
+                $("#results_title").html("Error communicating with western power website");
+            }
+
+
+            function isNumber(n) {
+                return !isNaN(parseFloat(n)) && isFinite(n);
+            }
+
+            function isPostCode(searchString) {
+                if (isNumber(searchString[0])) {
+                    if (searchString.length === 4) {
+                        return true;
+                    }
+                    return false;
+                } else {
+                    return false;
+                }
+            }
+
+        </script>
+    </div>
+    <script src="./js/mustache.js"></script>
+    <script src="./js/jqm.autocomplete-jsonp-1.5.1.js"></script>
+    <script src="./js/postcode_wa.js"></script>
+    <script src="./js/pi.js"></script>
+</body>
+</html>

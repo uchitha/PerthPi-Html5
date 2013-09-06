@@ -1,0 +1,223 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+    <title>My Page</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="http://code.jquery.com/mobile/1.2.1/jquery.mobile-1.2.1.min.css" />
+    <link rel="stylesheet" href="./css/tolito-1.0.4.css" />
+
+    <script src="./js/jquery-1.8.3.min.js"></script>
+    <script src="./js/jquery.mobile-1.2.1.min.js"></script>
+    <script src="./js/tolito-1.0.4.js"></script>
+    <script src="./js/mustache.js"></script>
+    <script src="./js/jqm.autocomplete-jsonp-1.5.1.js"></script>
+    <script src="./js/postcode_wa.js"></script>
+    <script src="./js/pi.js"></script>
+
+</head>
+<body>
+    <!--Template-->
+    <div id="result_template">
+        <li data-theme="{{^IsInterrupted}}c{{/IsInterrupted}}" style="{{#IsInterrupted}}color: red{{/IsInterrupted}}">
+            <p class="ui-li-aside">{{Summary}}</p>
+            <h3 style="margin: 0">{{Name}} {{#PostCode}}<br />
+                ({{PostCode}}){{/PostCode}}</h3>
+            <p>{{#IsInterrupted}}Estimated Restoration at {{RestorationTime}}{{/IsInterrupted}}</p>
+        </li>
+    </div>
+    <!--End of Template-->
+    <div data-role="page" id="searchpage" data-theme="a">
+        <div data-role="header">
+            <h1>Search</h1>
+        </div>
+        <!-- /header -->
+        <div data-role="content">
+
+            <div class="ui-grid-solo">
+                <div class="ui-block-a">
+                    <span>Enter the location name or postcode and press <b>'Show'</b> button</span>
+                </div>
+                <div class="ui-block-a">
+                    <input type="search" id="location" name="location" style="display: inline-block" />
+                    <ul id="locations" data-role="listview" data-inset="true" />
+                </div>
+                <div class="ui-block-a">
+                    <p>
+                        <a href="#results" id="search_button" data-role="button" data-transition="slide">Show</a>
+                    </p>
+                </div>
+            </div>
+        </div>
+        <script type="text/javascript">
+
+            $(document).delegate("#searchpage", "pageinit", function () {
+                //pi.initializeInterruptionData();
+                console.log('init completed');
+
+            });
+
+            $(document).delegate("#searchpage", "pageshow", function (e) {
+
+                $("#location").autocomplete({
+                    target: $("#locations"),
+                    source: getSuburbs,
+                    minLength: 3,
+                    link: '#results',
+                    loadingHtml: '',
+                    matchFromStart: true,
+                    callback: function (e) {
+                        var $a = $(e.currentTarget); // access the selected item
+                        $('#location').val($a.text().split('(')[0].trim()); // place the value of the selection into the search box
+                        $("#locations").autocomplete('clear'); // clear the listview
+                        $("#locations").hide();
+                    },
+                    onLoading: function () {
+                        $("#locations").show();
+                    },
+                });
+            });
+
+            function getSuburbs(searchString, callback) {
+                $("#locations").show();
+                var data = {};
+                searchString = searchString.toUpperCase();
+                var startChar = searchString[0];
+                if (isNumber(startChar)) {
+                    if (searchString.length < 4) return;
+                    data = locationsByPostcode[searchString];
+                } else {
+                    var suburbsStartingWith = locationsByInitialLetter[startChar];
+                    data = suburbsStartingWith.sort().filter(function (element) {
+                        var re = new RegExp('^' + searchString, 'i');
+                        return re.test(element);
+                    });
+                }
+                callback(data);
+            }
+
+        </script>
+    </div>
+    <div data-role="page" id="results" data-theme="a" data-content-theme="a">
+        <div data-role="header">
+            <h1>Interruptions</h1>
+        </div>
+        <!-- /header -->
+        <div data-role="content">
+            <div id="progressbar">
+            </div>
+            <br />
+            <span id="results_title"></span>
+            <br />
+            <ul data-role="listview" data-inset="true" id="result_data" class="ui-listview">
+            </ul>
+            <div class="ui-grid-solo">
+                <div class="ui-block-a">
+                    <p>
+                        <a href="#searchpage" data-role="button" data-transition="slide" data-direction="reverse">New Search</a>
+                    </p>
+                </div>
+            </div>
+        </div>
+        <!-- /content -->
+        <script type="text/javascript">
+
+            $(document).delegate("#results", "pageshow", function () {
+                console.log('pageshow');
+
+                var location = $('#location').val();
+
+                $("#results_title").html("Fetching information for " + location + "...");
+                $("#progressbar").show();
+
+                var interruptData = getLocalPowerInterruptData(location);
+                displayPowerInterruptData(interruptData, location);
+
+            });
+
+
+            $(document).delegate("#results", "pagehide", function () {
+                $("#result_data").html('');
+            });
+
+            $(document).delegate("#results", "pageinit", function () {
+                startProgressBar();
+                console.log('pageinit');
+            });
+
+            function getRealTimePowerInterruptData(location) {
+                var url = "http://tnu.apphb.com/api/powerinterruption/" + location;
+
+                return $.ajax({
+                    url: url,
+                    type: 'GET',
+                    dataType: 'jsonp'
+                });
+            }
+
+            function getLocalPowerInterruptData(location) {
+                var data;
+                if (isPostCode(location)) {
+                    return pi.getInterruptionPostcode(location);
+                } else {
+                    return pi.getInterruptionSuburb(location);
+                }
+            }
+
+            function displayPowerInterruptData(data, location) {
+                //alert(data);
+                if (data == undefined || data.length === 0) {
+                    $("#results_title").html("No results found for " + location);
+                } else {
+                    var template = "{{#.}}" + $("#result_template").html().trim() + "{{/.}}";
+                    var output = Mustache.to_html(template, data);
+                    $("#results_title").html("Here are the results for " + location);
+                    $("#result_data").html(output);
+                    $("#result_data").listview('refresh');
+                }
+                stopProgressBar();
+            }
+
+            function displayFailure(errorStatus) {
+                $("#results_title").html("Error communicating with western power website");
+                stopProgressBar();
+            }
+
+            function startProgressBar() {
+                TolitoProgressBar('progressbar')
+                    .setOuterTheme('b')
+                    .isIndefinite(true)
+                    .isMini(true)
+                    .showCounter(false)
+                    .logOptions()
+                    .build();
+
+            }
+
+            function stopProgressBar() {
+                $("#progressbar").hide();
+            }
+
+
+
+            function isNumber(n) {
+                return !isNaN(parseFloat(n)) && isFinite(n);
+            }
+
+            function isPostCode(searchString) {
+                searchString = searchString.toUpperCase();
+                var startChar = searchString[0];
+                if (isNumber(startChar)) {
+                    if (searchString.length < 4) {
+                        return true;
+                    }
+                    return false;
+                } else {
+                    return false;
+                }
+            }
+
+        </script>
+    </div>
+
+</body>
+</html>
